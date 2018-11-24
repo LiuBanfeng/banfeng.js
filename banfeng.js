@@ -10,29 +10,27 @@
  *         // 除此之外: w-周几,l-毫秒数,t时间戳
  *         
  * 2. 图片压缩上传   
- *         uploadThumbnail({
- *                 url,file,dataType,success:func(d), 
- *                 name:filename,formName:formName,max:[maxWidth,maxHeight] //可选
- *                 // img:图片对象true为base64,false默认为blob
- *         })
+ *         uploadThumbnail({ })
  *         this.newImgObj // 属性为压缩后的图片对象
+ * 3. HTMLHttpRequest
+ *         ajax({ })
  */
 
 
 /* 获取带0的日期时间 */
 (function(win,undefined){
-    var Time = function( date,type ){ // date 时间戳 或者时间对象 type"ymdhis等格式"
+    "use strict"
+    // date 时间戳 或者时间对象 type"ymdhis等格式"
+    var Time = function( date,type ){ 
         this.getTime = "";
-        this.dateT = typeof date;
         this.date = date;
         this.type = type.split( '' );
         this.init();
     }
-
     Time.prototype = {
         constructor:Time,
         init:function(){
-            if( this.dateT =='object' ){
+            if( typeof this.date =='object' ){
                 if( !(this.date instanceof Date) ){
                     return this.getTime = false;
                 }
@@ -49,7 +47,8 @@
             }
 
         },
-        typeAnalytic:function(){ //解析type
+        //解析type
+        typeAnalytic:function(){ 
             var i;
             var d = this.date;
             for( i in this.type ){
@@ -111,9 +110,9 @@
             }
         },
         explain:function(){
-            console.group( "this is new Time" );
-            console.log( 'new Time( data,type )' );
-            console.log( "obj.getTime:return date" )
+            console.group( "this is new Time" )
+            console.info( 'new Time( data,type )' +
+                          "\nobj.getTime:return date" );
             console.groupEnd();
         }
     }
@@ -138,7 +137,14 @@
         },
         // 压缩图片 并将画布传入上传函数
         compressPictures:function( obj ){
+            obj = obj || {};
+            obj.file = obj.file || "undefined";
+            obj.url = obj.url || "undefined";
             var objThis = this;
+            if( obj.file == "undefined" || obj.url == "undefined" ){
+                console.info( "uploadThumbnail: 'file' and 'url' are required" );
+                return false
+            };
             // 压缩图片需要的一些元素和对象
             var reader = new FileReader(), newImg = new Image();
             // 缩放图片需要的canvas
@@ -232,23 +238,90 @@
                         }
                     }; 
                 }, 
-                file.type || 'image/png',
+                obj.file.type || 'image/png',
             );
         },
         explain:function(){
             console.group( "This is uploadThumbnail" );
-            console.log( 'new uploadThumbnail({' );
-            console.log( '  name:imgFileName || "imgs",' );
-            console.log( '  formName:formName || "forms",' );
-            console.log( '  max:[maxWidth,maxHeight]  || [ 400*400 ],' );
-            console.log( '  file:inputFile,' );
-            console.log( '  url:URL,' );
-            console.log( '  dataType:"json" || "text"' );
-            console.log( '  success:functon(data){} Callback function on success' );
-            console.log( '});' );
-            console.log( "obj.newImgObj:Compressed image object" );
+            console.log( 'new uploadThumbnail({' +
+                            '\n\tname:imgFileName || "imgs",' +
+                            '\n\tformName:formName || "forms",' +
+                            '\n\tmax:[maxWidth,maxHeight]  || [ 400*400 ],' +
+                            '\n\tfile:inputFile,' +
+                            '\n\turl:URL,' +
+                            '\n\tdataType:"json" || "text"' +
+                            '\n\tsuccess:functon(data){} Callback function on success' +
+                            '\n});' +
+                            "\nobj.newImgObj:Compressed image object" )
             console.groupEnd();
         }
     }
     win.uploadThumbnail = uploadThumbnail;
 }(window));
+
+/* 封装ajax */
+(function(win,undefined){
+    "use strict"
+    var ajax = function( obj ){
+        this.init( obj );
+    }
+    ajax.prototype = {
+        constructor:ajax,
+        init:function( obj ){
+            obj = obj || {};
+            obj.type = obj.type || 'post';
+            obj.url = obj.url || '';
+            obj.async = obj.async || true;
+            obj.data = obj.data || null;
+            obj.success = obj.success || function () {};
+            obj.dataType =obj.dataType || 'text';
+            var request = null;
+            if (XMLHttpRequest) {
+                request = new XMLHttpRequest();
+            }
+            else {
+                request = new ActiveXObject('Microsoft.XMLHTTP');
+            }
+            var params = [];
+            for (var key in obj.data){
+                params.push(key + '=' + obj.data[key]);
+            }
+            var postData = params.join('&');
+            if (obj.type.toUpperCase() === 'POST') {
+                request.open(obj.type, obj.url, obj.async);
+                request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded;charset=utf-8');
+                request.send(postData);
+            }
+            else if (obj.type.toUpperCase() === 'GET') {
+                request.open(obj.type, obj.url + '?' + postData, obj.async);
+                request.send(null);
+            }
+            request.onreadystatechange = function () {
+                if (request.readyState == 4 && request.status == 200) {
+                    if( obj.type=="JSON" ){
+                        try{
+                            obj.success( JSON.parse(request.responseText) )
+                        }catch( err ){
+                            console.info( "banfeng reminds you: Error in converting received data to 'JSON' format" )
+                        }
+                    }else{
+                        obj.success( request.responseText )
+                    }
+                }
+            };
+        },
+        explain:function(){
+            console.group( "this is new ajax" );
+            console.log( "new ajax({" +
+                            "\n\turl: URL," +
+                            "\n\tdata: {key:value}" +
+                            "\n\ttype: post || get" +
+                            "\n\tdataType: json || text" +
+                            "\n\tsuccess: function( data ){ }" +
+                            "\n\tasync: true || false" +
+                        "\n})" );
+            console.groupEnd();
+        }
+    }
+    win.ajax = ajax;
+}(window))
